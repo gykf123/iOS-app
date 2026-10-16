@@ -34,8 +34,34 @@ jobs:
           export HOMEBREW_NO_AUTO_UPDATE=1
           brew install xcodegen
 
+      # xcodegen 2.46+ 生成的工程是 Xcode 16 格式（objectVersion 77），
+      # macos-14 默认的 Xcode 15.4 读不了，需显式切换到镜像内预装的 Xcode 16。
+      - name: 选择 Xcode 16
+        run: |
+          XCODE_APP=$(ls -d /Applications/Xcode_16*.app 2>/dev/null | sort -V | tail -1)
+          if [ -z "$XCODE_APP" ]; then
+            echo "未找到 Xcode 16，回退到系统默认 Xcode"
+          else
+            echo "选用 Xcode: $XCODE_APP"
+            sudo xcode-select -s "$XCODE_APP"
+          fi
+          xcodebuild -version
+          swift --version
+
       - name: 生成 Xcode 工程
-        run: xcodegen generate
+        run: |
+          set -o pipefail
+          if ls -d /Applications/Xcode_16*.app >/dev/null 2>&1; then
+            # 有 Xcode 16：直接用 brew 装的 xcodegen 生成新格式工程
+            xcodegen generate
+          else
+            # 无 Xcode 16：下载 xcodegen 2.44.1（生成 Xcode 15 兼容格式）
+            echo "未找到 Xcode 16，改用 xcodegen 2.44.1 生成旧格式工程"
+            curl -fsSL -o /tmp/xcodegen.zip \
+              https://github.com/yonaskolb/XcodeGen/releases/download/2.44.1/xcodegen.zip
+            unzip -q -o /tmp/xcodegen.zip -d /tmp/xcodegen-bin
+            /tmp/xcodegen-bin/xcodegen/bin/xcodegen generate
+          fi
 
       # 当前工程零第三方 SPM 依赖；此处缓存为后续引入 SwiftPM 依赖预留
       - name: 缓存 SwiftPM 依赖（预留）
