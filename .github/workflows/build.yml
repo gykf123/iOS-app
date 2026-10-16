@@ -1,0 +1,60 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Sources/**"
+      - "Resources/**"
+      - "project.yml"
+      - ".github/workflows/**"
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: XcodeGen + xcodebuild（未签名构建）
+    runs-on: macos-14
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 缓存 Homebrew 下载（加速 xcodegen 安装）
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/Caches/Homebrew
+          key: ${{ runner.os }}-brew-xcodegen-${{ hashFiles('.github/workflows/build.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-brew-xcodegen-
+
+      - name: 安装 XcodeGen
+        run: |
+          export HOMEBREW_NO_AUTO_UPDATE=1
+          brew install xcodegen
+
+      - name: 生成 Xcode 工程
+        run: xcodegen generate
+
+      # 当前工程零第三方 SPM 依赖；此处缓存为后续引入 SwiftPM 依赖预留
+      - name: 缓存 SwiftPM 依赖（预留）
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/Developer/Xcode/DerivedData/**/SourcePackages
+            ~/Library/Caches/org.swift.swiftpm
+          key: ${{ runner.os }}-spm-${{ hashFiles('.github/workflows/build.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
+
+      - name: 构建（Debug，generic/platform=iOS，未签名）
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project FeSuiApp.xcodeproj \
+            -scheme FeSuiApp \
+            -configuration Debug \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO \
+            build

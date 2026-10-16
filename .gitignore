@@ -1,0 +1,24 @@
+# Xcode 标准忽略项
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.xcscmblueprint
+*.xcodat
+*.hmap
+*.ipa
+*.dSYM
+*.dSYM.zip
+
+# XcodeGen 产物：工程文件由 CI 或本地 `xcodegen generate` 生成，不纳入版本库
+*.xcodeproj
+
+# Swift Package Manager（当前零第三方依赖，预留）
+.build/
+Packages/
+
+# macOS / 编辑器
+.DS_Store
+*.swp
+.idea/
+.vscode/
