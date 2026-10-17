@@ -70,7 +70,7 @@ final class GuestbookClient {
     }
 
     private func validate(_ response: URLResponse) throws {
-        guard let httpResponse = response as? HTTPSURLResponse else {
+        guard let httpResponse = response as? HTTPURLResponse else {
             throw GuestbookError.invalidResponse
         }
         guard (200..<300).contains(httpResponse.statusCode) else {

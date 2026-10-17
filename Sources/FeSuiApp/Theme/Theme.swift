@@ -29,8 +29,6 @@ enum Theme {
 
     /// 卡片圆角。
     static let cornerRadius: CGFloat = 18
-
-    private init() {}
 }
 
 /// 轻盈「玻璃感」卡片：半透明材质 + 淡阴影 + 细描边。
