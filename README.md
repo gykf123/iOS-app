@@ -83,7 +83,20 @@ open FeSuiApp.xcodeproj
 
 - 工作流：`.github/workflows/build.yml`
 - 触发：push / pull request 到 `main`（监听 `Sources/**`、`Resources/**`、`project.yml`、workflow 自身变更），以及手动 `workflow_dispatch`
-- 步骤：checkout → 缓存 Homebrew → `brew install xcodegen` → `xcodegen generate` → 缓存 SwiftPM（预留）→ `xcodebuild -project FeSuiApp.xcodeproj -scheme FeSuiApp -configuration Debug -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build`
+- 步骤：checkout → 缓存 Homebrew → `brew install xcodegen` → 选择 Xcode 16 → `xcodegen generate` → 缓存 SwiftPM（预留）→ `xcodebuild ... archive` → 组 `Payload/` 压成 ipa → 上传产物
+
+## 下载构建产物
+
+**每次构建成功后都有产物**，路径：
+
+1. 打开仓库 **Actions** 标签页
+2. 左侧点 **Build** 工作流
+3. 点进最新一次绿色 ✓ 的运行记录
+4. 拉到页面底部 **Artifacts** 区域，下载：
+   - `FeSuiApp-ipa-<commit>`：未签名 `.ipa`，保留 30 天
+   - `FeSuiApp-xcarchive-<commit>`：`.xcarchive`，排查用，保留 7 天
+
+> 注意：产物在**单次运行详情页**的最底部，不是 Actions 列表页。未签名 ipa 无法直接装真机；要用 Sideloadly / AltStore 自签，或在 Xcode 里用你自己的 Team 重新签名后安装。
 
 ## 已知限制
 

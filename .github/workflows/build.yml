@@ -14,11 +14,11 @@ on:
 
 jobs:
   build:
-    name: XcodeGen + xcodebuild（未签名构建）
+    name: 构建 iOS App（未签名 ipa）
     runs-on: macos-14
     steps:
       - name: 检出代码
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: 缓存 Homebrew 下载（加速 xcodegen 安装）
         uses: actions/cache@v4
@@ -52,10 +52,8 @@ jobs:
         run: |
           set -o pipefail
           if ls -d /Applications/Xcode_16*.app >/dev/null 2>&1; then
-            # 有 Xcode 16：直接用 brew 装的 xcodegen 生成新格式工程
             xcodegen generate
           else
-            # 无 Xcode 16：下载 xcodegen 2.44.1（生成 Xcode 15 兼容格式）
             echo "未找到 Xcode 16，改用 xcodegen 2.44.1 生成旧格式工程"
             curl -fsSL -o /tmp/xcodegen.zip \
               https://github.com/yonaskolb/XcodeGen/releases/download/2.44.1/xcodegen.zip
@@ -74,7 +72,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-spm-
 
-      - name: 构建（Debug，generic/platform=iOS，未签名）
+      # 用 archive 出 .xcarchive，再手工组 .ipa（未签名）。
+      # 不签名无法直接装到真机，但可作为构建产物分发 / 验证编译完整性。
+      - name: 归档（Debug，generic/platform=iOS，未签名）
         run: |
           set -o pipefail
           xcodebuild \
@@ -82,5 +82,42 @@ jobs:
             -scheme FeSuiApp \
             -configuration Debug \
             -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/FeSuiApp.xcarchive" \
             CODE_SIGNING_ALLOWED=NO \
-            build
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            archive
+
+      - name: 打包为 ipa
+        id: package
+        run: |
+          set -euo pipefail
+          APP_PATH="$RUNNER_TEMP/FeSuiApp.xcarchive/Products/Applications/FeSuiApp.app"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "::error::归档产物中找不到 FeSuiApp.app"
+            ls -R "$RUNNER_TEMP/FeSuiApp.xcarchive/Products" || true
+            exit 1
+          fi
+          PAYLOAD="$RUNNER_TEMP/Payload"
+          rm -rf "$PAYLOAD" && mkdir -p "$PAYLOAD"
+          cp -R "$APP_PATH" "$PAYLOAD/"
+          cd "$RUNNER_TEMP"
+          zip -qry FeSuiApp-unsigned.ipa Payload
+          ls -lh FeSuiApp-unsigned.ipa
+          echo "ipa_path=$RUNNER_TEMP/FeSuiApp-unsigned.ipa" >> "$GITHUB_OUTPUT"
+
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: FeSuiApp-ipa-${{ github.sha }}
+          path: ${{ steps.package.outputs.ipa_path }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: 上传 xcarchive（排查用）
+        uses: actions/upload-artifact@v4
+        with:
+          name: FeSuiApp-xcarchive-${{ github.sha }}
+          path: ${{ runner.temp }}/FeSuiApp.xcarchive
+          if-no-files-found: warn
+          retention-days: 7
